@@ -28,24 +28,24 @@ testing.raw <- read.csv("pml-testing.csv")
 ```
 
 Now that we have loaded the data, we need to perform some preprocessing steps
-1. First we will remove columns 1 to 5 as these contain values that would not make sense as predictors such as row id, username and timestamps
+1. First we will remove columns 1 to 6 as these contain values that would not make sense as predictors such as row id, username and timestamps
 2. We will also remove any columns containing NA. We could have used techniques like kNN impute to fill missing values, but after some experimentation, eliminating all the columns with NA values does not seem to stop us from being able to create a very good prediction model for "classe". Removing columns containing NA brings us down to 55 columns
 3. Principal component analysis PCA: trying to train models without first applying PCA was causing performance issues on my laptop, so I apply PCA to capture 95% of the variance and the performance improvements in model training were significant - from an hour+ to several minutes. PCA resulted in less than 50% nbr of features required
 
 Once we have done this, we will split the training data into 80/20 split of training and testing data, since we should only RUN our final model on the holdout set (20 rows) without exploring the data and without training our hyperparameters on it
 
 ```{r preprocess/clean up the data}
-# Remove columns 1-5 which do not make sensible predictors in training set
-training.first5columnsremoved <- training.raw[ -c(1:5) ]
+# Remove columns 1-6 which do not make sensible predictors in training set
+training.first6columnsremoved <- training.raw[ -c(1:6) ]
 # Remove columns containing NA in training set
-training.first5columnsandnasremoved <- training.first5columnsremoved[, which(colMeans(!is.na(training.first5columnsremoved)) == 1)]
-# Remove columns 1-5 which do not make sensible predictors in testing set
-testing.first5columnsremoved <- testing.raw[ -c(1:5) ]
+training.first6columnsandnasremoved <- training.first6columnsremoved[, which(colMeans(!is.na(training.first6columnsremoved)) == 1)]
+# Remove columns 1-6 which do not make sensible predictors in testing set
+testing.first6columnsremoved <- testing.raw[ -c(1:6) ]
 # Remove columns containing NA in testing set
-testing.first5columnsandnasremoved <- testing.first5columnsremoved[, which(colMeans(!is.na(training.first5columnsremoved)) == 1)]
-inTrain = createDataPartition(y = training.first5columnsandnasremoved$classe, p = 0.8, list=FALSE)
-training = training.first5columnsandnasremoved[ inTrain,]
-testing = training.first5columnsandnasremoved[-inTrain,]
+testing.first6columnsandnasremoved <- testing.first6columnsremoved[, which(colMeans(!is.na(training.first6columnsremoved)) == 1)]
+inTrain = createDataPartition(y = training.first6columnsandnasremoved$classe, p = 0.8, list=FALSE)
+training = training.first6columnsandnasremoved[ inTrain,]
+testing = training.first6columnsandnasremoved[-inTrain,]
 set.seed(123)
 #calculate the # of columns in the dataset, as we know that the last column is the target variable "classe"
 col_classe_nb<-dim(training)[2] 
@@ -54,7 +54,7 @@ preProc <- preProcess(training[,-col_classe_nb],method="pca",thresh=0.95)
 #Apply preProc object to training and testing and holdout dataset
 training<-predict(preProc,training)
 testing<-predict(preProc,testing)
-holdout<-predict(preProc,testing.first5columnsandnasremoved)
+holdout<-predict(preProc,testing.first6columnsandnasremoved)
 preProc
 ```
 
@@ -74,19 +74,19 @@ acc.rpart <- confusionMatrix(table(factor(pred.rpart), factor(testing$classe)))$
 print(paste0("Out of sample estimated accuracy on rpart is ", acc.rpart))
 ```
 
-Next we will try a random forest model using 10 fold cross-validation, which based on having seen data scientists that I work with using AutoML, usually seems to come out near or at the top of the model scoring leaderboard (along with gradient boosted trees)
+Next we will try a random forest model using 5 fold cross-validation, which based on having seen data scientists that I work with using AutoML, usually seems to come out near or at the top of the model scoring leaderboard (along with gradient boosted trees)
 I chose 75 trees based on experimentation and a compromise between model accuracy and training time needed
 
 ```{r random forest}
 set.seed(123)
-train.control <- trainControl(method = "cv", number = 10)
+train.control <- trainControl(method = "cv", number = 5)
 fitRf <- train(classe ~ ., data=training, method="rf", ntree=75, trControl=train.control)
 pred.rf <- predict(fitRf, testing)
 acc.rf <- confusionMatrix(table(factor(pred.rf), factor(testing$classe)))$overall[1]
 print(paste0("Out of sample estimated accuracy on rf is ", acc.rf))
 ```
 
-Next we will try a gradient boosted model using 10 fold cross-validation, which based on having seen data scientists that I work with using AutoML, usually seems to come out near or at the top of the model scoring leaderboard (along with random forest)
+Next we will try a gradient boosted model using 5 fold cross-validation, which based on having seen data scientists that I work with using AutoML, usually seems to come out near or at the top of the model scoring leaderboard (along with random forest)
 
 ```{r gradient boosted model}
 set.seed(123)
